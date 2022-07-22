@@ -403,7 +403,18 @@ static const CurveTest kCurveTests[] = {
     "P-256:CECPQ2",
     { SSL_CURVE_SECP256R1, SSL_CURVE_CECPQ2 },
   },
-
+  {
+  "Xyber512D00",
+    { SSL_CURVE_X25519KYBER512DRAFT00 },
+  },
+  {
+  "Xyber768D00",
+    { SSL_CURVE_X25519KYBER768DRAFT00 },
+  },
+  {
+  "P-256:Xyber512D00",
+    { SSL_CURVE_SECP256R1, SSL_CURVE_X25519KYBER512DRAFT00 },
+  },
   {
     "P-256:P-384:P-521:X25519",
     {

@@ -25,6 +25,7 @@
 #include <openssl/ec.h>
 #include <openssl/err.h>
 #include <openssl/hrss.h>
+#include <openssl/kyber.h>
 #include <openssl/mem.h>
 #include <openssl/nid.h>
 #include <openssl/rand.h>
@@ -193,6 +194,200 @@ class X25519KeyShare : public SSLKeyShare {
   uint8_t private_key_[32];
 };
 
+class X25519Kyber768Draft00KeyShare : public SSLKeyShare {
+ public:
+  X25519Kyber768Draft00KeyShare() {}
+
+  uint16_t GroupID() const override { return SSL_CURVE_X25519KYBER768DRAFT00; }
+
+  bool Offer(CBB *out) override {
+    uint8_t x25519_public_key[32];
+    X25519_keypair(x25519_public_key, x25519_private_key_);
+
+    uint8_t kyber_entropy[KYBER_GENERATE_KEY_BYTES];
+    KYBER768_public_key kyber_public_key;
+    RAND_bytes(kyber_entropy, sizeof(kyber_entropy));
+    KYBER768_generate_key(&kyber_public_key, &kyber_private_key_, kyber_entropy);
+
+    uint8_t kyber_public_key_bytes[KYBER768_PUBLIC_KEY_BYTES];
+    KYBER768_marshal_public_key(kyber_public_key_bytes, &kyber_public_key);
+
+    if (!CBB_add_bytes(out, x25519_public_key, sizeof(x25519_public_key)) ||
+        !CBB_add_bytes(out, kyber_public_key_bytes,
+                       sizeof(kyber_public_key_bytes))) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool Accept(CBB *out_public_key, Array<uint8_t> *out_secret,
+              uint8_t *out_alert, Span<const uint8_t> peer_key) override {
+    Array<uint8_t> secret;
+    if (!secret.Init(32 + KYBER_KEY_BYTES)) {
+      OPENSSL_PUT_ERROR(SSL, ERR_R_MALLOC_FAILURE);
+      return false;
+    }
+
+    uint8_t x25519_public_key[32];
+    X25519_keypair(x25519_public_key, x25519_private_key_);
+
+    KYBER768_public_key peer_public_key;
+    if (peer_key.size() != 32 + KYBER768_PUBLIC_KEY_BYTES) {
+      *out_alert = SSL_AD_DECODE_ERROR;
+      OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_ECPOINT);
+      return false;
+    }
+
+    KYBER768_parse_public_key(&peer_public_key, peer_key.data() + 32);
+
+    if (!X25519(secret.data(), x25519_private_key_, peer_key.data())) {
+      *out_alert = SSL_AD_DECODE_ERROR;
+      OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_ECPOINT);
+      return false;
+    }
+
+    uint8_t ciphertext[KYBER768_CIPHERTEXT_BYTES];
+    uint8_t entropy[KYBER_ENCAP_BYTES];
+    RAND_bytes(entropy, sizeof(entropy));
+
+    KYBER768_encap(ciphertext, secret.data() + 32, &peer_public_key, entropy);
+    if(!CBB_add_bytes(out_public_key, x25519_public_key,
+                       sizeof(x25519_public_key)) ||
+        !CBB_add_bytes(out_public_key, ciphertext, sizeof(ciphertext))) {
+      return false;
+    }
+
+    *out_secret = std::move(secret);
+    return true;
+  }
+
+  bool Finish(Array<uint8_t> *out_secret, uint8_t *out_alert,
+              Span<const uint8_t> peer_key) override {
+    *out_alert = SSL_AD_INTERNAL_ERROR;
+
+    Array<uint8_t> secret;
+    if (!secret.Init(32 + KYBER_KEY_BYTES)) {
+      OPENSSL_PUT_ERROR(SSL, ERR_R_MALLOC_FAILURE);
+      return false;
+    }
+
+    if (peer_key.size() != 32 + KYBER768_CIPHERTEXT_BYTES ||
+        !X25519(secret.data(), x25519_private_key_, peer_key.data())) {
+      *out_alert = SSL_AD_DECODE_ERROR;
+      OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_ECPOINT);
+      return false;
+    }
+
+    KYBER768_decap(secret.data() + 32, &kyber_private_key_,
+                    peer_key.data() + 32, peer_key.size() - 32);
+
+    *out_secret = std::move(secret);
+    return true;
+  }
+
+ private:
+  uint8_t x25519_private_key_[32];
+  KYBER768_private_key kyber_private_key_;
+};
+
+class X25519Kyber512Draft00KeyShare : public SSLKeyShare {
+ public:
+  X25519Kyber512Draft00KeyShare() {}
+
+  uint16_t GroupID() const override { return SSL_CURVE_X25519KYBER512DRAFT00; }
+
+  bool Offer(CBB *out) override {
+    uint8_t x25519_public_key[32];
+    X25519_keypair(x25519_public_key, x25519_private_key_);
+
+    uint8_t kyber_entropy[KYBER_GENERATE_KEY_BYTES];
+    KYBER512_public_key kyber_public_key;
+    RAND_bytes(kyber_entropy, sizeof(kyber_entropy));
+    KYBER512_generate_key(&kyber_public_key, &kyber_private_key_, kyber_entropy);
+
+    uint8_t kyber_public_key_bytes[KYBER512_PUBLIC_KEY_BYTES];
+    KYBER512_marshal_public_key(kyber_public_key_bytes, &kyber_public_key);
+
+    if (!CBB_add_bytes(out, x25519_public_key, sizeof(x25519_public_key)) ||
+        !CBB_add_bytes(out, kyber_public_key_bytes,
+                       sizeof(kyber_public_key_bytes))) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool Accept(CBB *out_public_key, Array<uint8_t> *out_secret,
+              uint8_t *out_alert, Span<const uint8_t> peer_key) override {
+    Array<uint8_t> secret;
+    if (!secret.Init(32 + KYBER_KEY_BYTES)) {
+      OPENSSL_PUT_ERROR(SSL, ERR_R_MALLOC_FAILURE);
+      return false;
+    }
+
+    uint8_t x25519_public_key[32];
+    X25519_keypair(x25519_public_key, x25519_private_key_);
+
+    KYBER512_public_key peer_public_key;
+    if (peer_key.size() != 32 + KYBER512_PUBLIC_KEY_BYTES) {
+      *out_alert = SSL_AD_DECODE_ERROR;
+      OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_ECPOINT);
+      return false;
+    }
+
+    KYBER512_parse_public_key(&peer_public_key, peer_key.data() + 32);
+
+    if (!X25519(secret.data(), x25519_private_key_, peer_key.data())) {
+      *out_alert = SSL_AD_DECODE_ERROR;
+      OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_ECPOINT);
+      return false;
+    }
+
+    uint8_t ciphertext[KYBER512_CIPHERTEXT_BYTES];
+    uint8_t entropy[KYBER_ENCAP_BYTES];
+    RAND_bytes(entropy, sizeof(entropy));
+
+    KYBER512_encap(ciphertext, secret.data() + 32, &peer_public_key, entropy);
+    if(!CBB_add_bytes(out_public_key, x25519_public_key,
+                       sizeof(x25519_public_key)) ||
+        !CBB_add_bytes(out_public_key, ciphertext, sizeof(ciphertext))) {
+      return false;
+    }
+
+    *out_secret = std::move(secret);
+    return true;
+  }
+
+  bool Finish(Array<uint8_t> *out_secret, uint8_t *out_alert,
+              Span<const uint8_t> peer_key) override {
+    *out_alert = SSL_AD_INTERNAL_ERROR;
+
+    Array<uint8_t> secret;
+    if (!secret.Init(32 + KYBER_KEY_BYTES)) {
+      OPENSSL_PUT_ERROR(SSL, ERR_R_MALLOC_FAILURE);
+      return false;
+    }
+
+    if (peer_key.size() != 32 + KYBER512_CIPHERTEXT_BYTES ||
+        !X25519(secret.data(), x25519_private_key_, peer_key.data())) {
+      *out_alert = SSL_AD_DECODE_ERROR;
+      OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_ECPOINT);
+      return false;
+    }
+
+    KYBER512_decap(secret.data() + 32, &kyber_private_key_,
+                    peer_key.data() + 32, peer_key.size() - 32);
+
+    *out_secret = std::move(secret);
+    return true;
+  }
+
+ private:
+  uint8_t x25519_private_key_[32];
+  KYBER512_private_key kyber_private_key_;
+};
+
 class CECPQ2KeyShare : public SSLKeyShare {
  public:
   CECPQ2KeyShare() {}
@@ -297,6 +492,10 @@ constexpr NamedGroup kNamedGroups[] = {
     {NID_secp521r1, SSL_CURVE_SECP521R1, "P-521", "secp521r1"},
     {NID_X25519, SSL_CURVE_X25519, "X25519", "x25519"},
     {NID_CECPQ2, SSL_CURVE_CECPQ2, "CECPQ2", "CECPQ2"},
+    {NID_X25519Kyber512Draft00, SSL_CURVE_X25519KYBER512DRAFT00,
+        "X25519Kyber512Draft00", "Xyber512D00"},
+    {NID_X25519Kyber768Draft00, SSL_CURVE_X25519KYBER768DRAFT00,
+        "X25519Kyber768Draft00", "Xyber768D00"}
 };
 
 }  // namespace
@@ -323,6 +522,10 @@ UniquePtr<SSLKeyShare> SSLKeyShare::Create(uint16_t group_id) {
       return UniquePtr<SSLKeyShare>(New<X25519KeyShare>());
     case SSL_CURVE_CECPQ2:
       return UniquePtr<SSLKeyShare>(New<CECPQ2KeyShare>());
+    case SSL_CURVE_X25519KYBER512DRAFT00:
+      return UniquePtr<SSLKeyShare>(New<X25519Kyber512Draft00KeyShare>());
+    case SSL_CURVE_X25519KYBER768DRAFT00:
+      return UniquePtr<SSLKeyShare>(New<X25519Kyber768Draft00KeyShare>());
     default:
       return nullptr;
   }

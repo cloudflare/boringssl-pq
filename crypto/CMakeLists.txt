@@ -309,6 +309,8 @@ add_library(
   hkdf/hkdf.c
   hpke/hpke.c
   hrss/hrss.c
+  kyber/kyber512.c
+  kyber/kyber768.c
   lhash/lhash.c
   mem.c
   obj/obj.c

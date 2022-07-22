@@ -205,7 +205,8 @@ static bool tls1_check_duplicate_extensions(const CBS *cbs) {
 }
 
 static bool is_post_quantum_group(uint16_t id) {
-  return id == SSL_CURVE_CECPQ2;
+  return id == SSL_CURVE_CECPQ2 || id == SSL_CURVE_X25519KYBER512DRAFT00 ||
+        id == SSL_CURVE_X25519KYBER768DRAFT00;
 }
 
 bool ssl_client_hello_init(const SSL *ssl, SSL_CLIENT_HELLO *out,
@@ -341,8 +342,8 @@ bool tls1_get_shared_group(SSL_HANDSHAKE *hs, uint16_t *out_group_id) {
   for (uint16_t pref_group : pref) {
     for (uint16_t supp_group : supp) {
       if (pref_group == supp_group &&
-          // CECPQ2(b) doesn't fit in the u8-length-prefixed ECPoint field in
-          // TLS 1.2 and below.
+          // CECPQ2(b) and Kyber don't fit in the u8-length-prefixed ECPoint
+          // field in TLS 1.2 and below.
           (ssl_protocol_version(ssl) >= TLS1_3_VERSION ||
            !is_post_quantum_group(pref_group))) {
         *out_group_id = pref_group;
@@ -408,7 +409,7 @@ bool tls1_set_curves_list(Array<uint16_t> *out_group_ids, const char *curves) {
 bool tls1_check_group_id(const SSL_HANDSHAKE *hs, uint16_t group_id) {
   if (is_post_quantum_group(group_id) &&
       ssl_protocol_version(hs->ssl) < TLS1_3_VERSION) {
-    // CECPQ2(b) requires TLS 1.3.
+    // CECPQ2(b) and Kyber requires TLS 1.3.
     return false;
   }
 
