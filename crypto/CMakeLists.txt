@@ -173,8 +173,8 @@ add_library(
   ex_data.c
   hpke/hpke.c
   hrss/hrss.c
-  kyber/keccak.c
-  kyber/kyber.c
+  kyber/kyber512.c
+  kyber/kyber768.c
   lhash/lhash.c
   mem.c
   obj/obj.c

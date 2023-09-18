@@ -1019,6 +1019,116 @@ static bool SpeedScrypt(const std::string &selected) {
   return true;
 }
 
+static bool SpeedKyber768(const std::string &selected) {
+  if (!selected.empty() && selected != "Kyber768") {
+    return true;
+  }
+
+  TimeResults results;
+
+  if (!TimeFunction(&results, []() -> bool {
+        struct KYBER768_public_key pub;
+        struct KYBER768_private_key priv;
+        uint8_t entropy[KYBER_GENERATE_KEY_BYTES];
+        RAND_bytes(entropy, sizeof(entropy));
+        KYBER768_generate_key(&pub, &priv, entropy);
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time KYBER768_generate_key.\n");
+    return false;
+  }
+
+  results.Print("Kyber768 generate");
+
+  struct KYBER768_public_key pub;
+  struct KYBER768_private_key priv;
+  uint8_t key_entropy[KYBER_GENERATE_KEY_BYTES];
+  RAND_bytes(key_entropy, sizeof(key_entropy));
+  KYBER768_generate_key(&pub, &priv, key_entropy);
+
+  uint8_t ciphertext[KYBER768_CIPHERTEXT_BYTES];
+  if (!TimeFunction(&results, [&pub, &ciphertext]() -> bool {
+        uint8_t entropy[KYBER_ENCAP_BYTES];
+        uint8_t shared_key[KYBER_KEY_BYTES];
+        RAND_bytes(entropy, sizeof(entropy));
+        KYBER768_encap(ciphertext, shared_key, &pub, entropy);
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time KYBER768_encap.\n");
+    return false;
+  }
+
+  results.Print("Kyber768 encap");
+
+  if (!TimeFunction(&results, [&priv, &ciphertext]() -> bool {
+        uint8_t shared_key[KYBER_KEY_BYTES];
+        KYBER768_decap(shared_key, &priv, ciphertext, sizeof(ciphertext));
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time KYBER768_decap.\n");
+    return false;
+  }
+
+  results.Print("Kyber768 decap");
+
+  return true;
+}
+
+static bool SpeedKyber512(const std::string &selected) {
+  if (!selected.empty() && selected != "Kyber512") {
+    return true;
+  }
+
+  TimeResults results;
+
+  if (!TimeFunction(&results, []() -> bool {
+        struct KYBER512_public_key pub;
+        struct KYBER512_private_key priv;
+        uint8_t entropy[KYBER_GENERATE_KEY_BYTES];
+        RAND_bytes(entropy, sizeof(entropy));
+        KYBER512_generate_key(&pub, &priv, entropy);
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time KYBER512_generate_key.\n");
+    return false;
+  }
+
+  results.Print("Kyber512 generate");
+
+  struct KYBER512_public_key pub;
+  struct KYBER512_private_key priv;
+  uint8_t key_entropy[KYBER_GENERATE_KEY_BYTES];
+  RAND_bytes(key_entropy, sizeof(key_entropy));
+  KYBER512_generate_key(&pub, &priv, key_entropy);
+
+  uint8_t ciphertext[KYBER512_CIPHERTEXT_BYTES];
+  if (!TimeFunction(&results, [&pub, &ciphertext]() -> bool {
+        uint8_t entropy[KYBER_ENCAP_BYTES];
+        uint8_t shared_key[KYBER_KEY_BYTES];
+        RAND_bytes(entropy, sizeof(entropy));
+        KYBER512_encap(ciphertext, shared_key, &pub, entropy);
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time KYBER512_encap.\n");
+    return false;
+  }
+
+  results.Print("Kyber512 encap");
+
+  if (!TimeFunction(&results, [&priv, &ciphertext]() -> bool {
+        uint8_t shared_key[KYBER_KEY_BYTES];
+        KYBER512_decap(shared_key, &priv, ciphertext, sizeof(ciphertext));
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time KYBER512_decap.\n");
+    return false;
+  }
+
+  results.Print("Kyber512 decap");
+
+  return true;
+}
+
 static bool SpeedHRSS(const std::string &selected) {
   if (!selected.empty() && selected != "HRSS") {
     return true;
@@ -1076,55 +1186,6 @@ static bool SpeedHRSS(const std::string &selected) {
   }
 
   results.Print("HRSS decap");
-
-  return true;
-}
-
-static bool SpeedKyber(const std::string &selected) {
-  if (!selected.empty() && selected != "Kyber") {
-    return true;
-  }
-
-  TimeResults results;
-
-  uint8_t ciphertext[KYBER_CIPHERTEXT_BYTES];
-  // This ciphertext is nonsense, but Kyber decap is constant-time so, for the
-  // purposes of timing, it's fine.
-  memset(ciphertext, 42, sizeof(ciphertext));
-  if (!TimeFunctionParallel(&results, [&]() -> bool {
-        KYBER_private_key priv;
-        uint8_t encoded_public_key[KYBER_PUBLIC_KEY_BYTES];
-        KYBER_generate_key(encoded_public_key, &priv);
-        uint8_t shared_secret[32];
-        KYBER_decap(shared_secret, sizeof(shared_secret), ciphertext, &priv);
-        return true;
-      })) {
-    fprintf(stderr, "Failed to time KYBER_generate_key + KYBER_decap.\n");
-    return false;
-  }
-
-  results.Print("Kyber generate + decap");
-
-  KYBER_private_key priv;
-  uint8_t encoded_public_key[KYBER_PUBLIC_KEY_BYTES];
-  KYBER_generate_key(encoded_public_key, &priv);
-  KYBER_public_key pub;
-  if (!TimeFunctionParallel(&results, [&]() -> bool {
-        CBS encoded_public_key_cbs;
-        CBS_init(&encoded_public_key_cbs, encoded_public_key,
-                 sizeof(encoded_public_key));
-        if (!KYBER_parse_public_key(&pub, &encoded_public_key_cbs)) {
-          return false;
-        }
-        uint8_t shared_secret[32];
-        KYBER_encap(ciphertext, shared_secret, sizeof(shared_secret), &pub);
-        return true;
-      })) {
-    fprintf(stderr, "Failed to time KYBER_encap.\n");
-    return false;
-  }
-
-  results.Print("Kyber parse + encap");
 
   return true;
 }
@@ -1617,7 +1678,8 @@ bool Speed(const std::vector<std::string> &args) {
       !SpeedScrypt(selected) ||
       !SpeedRSAKeyGen(selected) ||
       !SpeedHRSS(selected) ||
-      !SpeedKyber(selected) ||
+      !SpeedKyber512(selected) ||
+      !SpeedKyber768(selected) ||
       !SpeedHashToCurve(selected) ||
       !SpeedTrustToken("TrustToken-Exp1-Batch1", TRUST_TOKEN_experiment_v1(), 1,
                        selected) ||

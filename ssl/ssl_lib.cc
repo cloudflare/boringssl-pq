@@ -537,7 +537,8 @@ ssl_ctx_st::ssl_ctx_st(const SSL_METHOD *ssl_method)
       handoff(false),
       enable_early_data(false),
       aes_hw_override(false),
-      aes_hw_override_value(false) {
+      aes_hw_override_value(false),
+      disable_second_keyshare(false) {
   CRYPTO_MUTEX_init(&lock);
   CRYPTO_new_ex_data(&ex_data);
 }
@@ -660,6 +661,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
   ssl->config->aes_hw_override = ctx->aes_hw_override;
   ssl->config->aes_hw_override_value = ctx->aes_hw_override_value;
   ssl->config->tls13_cipher_policy = ctx->tls13_cipher_policy;
+  ssl->config->disable_second_keyshare = ctx->disable_second_keyshare;
 
   if (!ssl->config->supported_group_list.CopyFrom(ctx->supported_group_list) ||
       !ssl->config->alpn_client_proto_list.CopyFrom(
@@ -708,7 +710,8 @@ SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
       jdk11_workaround(false),
       quic_use_legacy_codepoint(false),
       permute_extensions(false),
-      alps_use_new_codepoint(false) {
+      alps_use_new_codepoint(false),
+      disable_second_keyshare(false) {
   assert(ssl);
 }
 
@@ -2034,6 +2037,14 @@ static bool ssl_str_to_group_ids(Array<uint16_t> *out_group_ids,
   assert(i == count);
   *out_group_ids = std::move(group_ids);
   return true;
+}
+
+void SSL_use_second_keyshare(SSL *ssl, int enabled) {
+    ssl->config->disable_second_keyshare = !enabled;
+}
+
+void SSL_CTX_use_second_keyshare(SSL_CTX *ctx, int enabled) {
+    ctx->disable_second_keyshare = !enabled;
 }
 
 int SSL_CTX_set1_groups_list(SSL_CTX *ctx, const char *groups) {

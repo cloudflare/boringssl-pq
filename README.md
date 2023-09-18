@@ -1,3 +1,9 @@
+**WARNING** [Upstream BoringSSL](https://boringssl.googlesource.com/boringssl/)
+now supports `X25519Kyber768Draft00` under the new codepoint `0x6399`.
+This fork is **deprecated**. It supports the old codepoints `0xfe30`
+and `0xfe31` for `X25519Kyber512Draft00` and `X25519Kyber768Draft00`
+respectively.
+
 # BoringSSL
 
 BoringSSL is a fork of OpenSSL that is designed to meet Google's needs.

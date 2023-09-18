@@ -207,6 +207,8 @@ static bool tls1_check_duplicate_extensions(const CBS *cbs) {
 static bool is_post_quantum_group(uint16_t id) {
   switch (id) {
     case SSL_GROUP_X25519_KYBER768_DRAFT00:
+    case SSL_GROUP_X25519_KYBER768_DRAFT00_OLD:
+    case SSL_GROUP_X25519_KYBER512_DRAFT00:
       return true;
     default:
       return false;
@@ -2254,12 +2256,14 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
 
     group_id = groups[0];
 
-    // We'll try to include one post-quantum and one classical initial key
-    // share.
-    for (size_t i = 1; i < groups.size() && second_group_id == 0; i++) {
-      if (is_post_quantum_group(group_id) != is_post_quantum_group(groups[i])) {
-        second_group_id = groups[i];
-        assert(second_group_id != group_id);
+    if (!ssl->config->disable_second_keyshare) {
+      // We'll try to include one post-quantum and one classical initial key
+      // share.
+      for (size_t i = 1; i < groups.size() && second_group_id == 0; i++) {
+        if (is_post_quantum_group(group_id) != is_post_quantum_group(groups[i])) {
+          second_group_id = groups[i];
+          assert(second_group_id != group_id);
+        }
       }
     }
   }

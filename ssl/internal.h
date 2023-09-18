@@ -3157,6 +3157,11 @@ struct SSL_CONFIG {
   // alps_use_new_codepoint if set indicates we use new ALPS extension codepoint
   // to negotiate and convey application settings.
   bool alps_use_new_codepoint : 1;
+
+  // As a client by default we will send a non post-quantum share and
+  // a post-quantum share if available. If disable_second_keyshare is set,
+  // we will only send the most preferred keyshare.
+  bool disable_second_keyshare : 1;
 };
 
 // From RFC 8446, used in determining PSK modes.
@@ -3765,6 +3770,12 @@ struct ssl_ctx_st {
   // of support for AES hardware. The value is only considered if
   // |aes_hw_override| is true.
   bool aes_hw_override_value : 1;
+
+  // As a client by default we will send a non post-quantum share and
+  // a post-quantum share if available. If disable_second_keyshare is set,
+  // we will only send the most preferred keyshare.
+  bool disable_second_keyshare : 1;
+
 
  private:
   ~ssl_ctx_st();

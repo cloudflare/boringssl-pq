@@ -2363,6 +2363,8 @@ OPENSSL_EXPORT size_t SSL_CTX_get_num_tickets(const SSL_CTX *ctx);
 #define SSL_GROUP_SECP521R1 25
 #define SSL_GROUP_X25519 29
 #define SSL_GROUP_X25519_KYBER768_DRAFT00 0x6399
+#define SSL_GROUP_X25519_KYBER512_DRAFT00 0xfe30
+#define SSL_GROUP_X25519_KYBER768_DRAFT00_OLD 0xfe31
 
 // SSL_CTX_set1_group_ids sets the preferred groups for |ctx| to |group_ids|.
 // Each element of |group_ids| should be one of the |SSL_GROUP_*| constants. It
@@ -2380,6 +2382,20 @@ OPENSSL_EXPORT int SSL_set1_group_ids(SSL *ssl, const uint16_t *group_ids,
 // SSL_get_group_id returns the ID of the group used by |ssl|'s most recently
 // completed handshake, or 0 if not applicable.
 OPENSSL_EXPORT uint16_t SSL_get_group_id(const SSL *ssl);
+
+// By default, a client will send both a non post-quantum and a post-quantum
+// keyshare if available.
+//
+// SSL_use_second_keyshare controls this behaviour. If |enabled| is 0, then
+// a client using |ssl| will only send one keyshare.
+OPENSSL_EXPORT void SSL_use_second_keyshare(SSL *ssl, int enabled);
+
+// By default, a client will send both a non post-quantum and a post-quantum
+// keyshare if available.
+//
+// SSL_CTX_use_second_keyshare controls this behaviour. If |enabled| is 0, then
+// a client using |ctx| will only send one keyshare.
+OPENSSL_EXPORT void SSL_CTX_use_second_keyshare(SSL_CTX *ctx, int enabled);
 
 // SSL_get_group_name returns a human-readable name for the group specified by
 // the given TLS group ID, or NULL if the group is unknown.
