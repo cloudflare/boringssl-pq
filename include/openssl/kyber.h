@@ -1,17 +1,3 @@
-/* Copyright (c) 2023, Google Inc.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
-
 #ifndef OPENSSL_HEADER_KYBER_H
 #define OPENSSL_HEADER_KYBER_H
 
@@ -21,105 +7,100 @@
 extern "C" {
 #endif
 
+#define KYBER512_PUBLIC_KEY_BYTES  800
+#define KYBER512_CIPHERTEXT_BYTES  768
+#define KYBER512_PRIVATE_KEY_BYTES 1632
+#define KYBER768_PUBLIC_KEY_BYTES  1184
+#define KYBER768_CIPHERTEXT_BYTES  1088
+#define KYBER768_PRIVATE_KEY_BYTES 2400
 
-// Kyber768.
-
-
-// KYBER_public_key contains a Kyber768 public key. The contents of this
-// object should never leave the address space since the format is unstable.
-struct KYBER_public_key {
-  union {
-    uint8_t bytes[512 * (3 + 9) + 32 + 32];
-    uint16_t alignment;
-  } opaque;
+struct KYBER512_private_key {
+  uint8_t opaque[KYBER512_PRIVATE_KEY_BYTES];
+};
+struct KYBER768_private_key {
+  uint8_t opaque[KYBER768_PRIVATE_KEY_BYTES];
+};
+struct KYBER512_public_key {
+  uint8_t opaque[KYBER512_PUBLIC_KEY_BYTES];
+};
+struct KYBER768_public_key {
+  uint8_t opaque[KYBER768_PUBLIC_KEY_BYTES];
 };
 
-// KYBER_private_key contains a Kyber768 private key. The contents of this
-// object should never leave the address space since the format is unstable.
-struct KYBER_private_key {
-  union {
-    uint8_t bytes[512 * (3 + 3 + 9) + 32 + 32 + 32];
-    uint16_t alignment;
-  } opaque;
-};
+// KYBER_GENERATE_KEY_BYTES is the number of bytes of entropy needed to
+// generate a keypair.
+#define KYBER_GENERATE_KEY_BYTES 64
 
-// KYBER_PUBLIC_KEY_BYTES is the number of bytes in an encoded Kyber768 public
-// key.
-#define KYBER_PUBLIC_KEY_BYTES 1184
+// KYBER_ENCAP_BYTES is the number of bytes of entropy needed to encapsulate a
+// session key.
+#define KYBER_ENCAP_BYTES 32
 
-// KYBER_generate_key generates a random public/private key pair, writes the
-// encoded public key to |out_encoded_public_key| and sets |out_private_key| to
-// the private key.
-OPENSSL_EXPORT void KYBER_generate_key(
-    uint8_t out_encoded_public_key[KYBER_PUBLIC_KEY_BYTES],
-    struct KYBER_private_key *out_private_key);
+// KYBER_KEY_BYTES is the number of bytes in a shared key.
+#define KYBER_KEY_BYTES 32
 
-// KYBER_public_from_private sets |*out_public_key| to the public key that
-// corresponds to |private_key|. (This is faster than parsing the output of
-// |KYBER_generate_key| if, for some reason, you need to encapsulate to a key
-// that was just generated.)
-OPENSSL_EXPORT void KYBER_public_from_private(
-    struct KYBER_public_key *out_public_key,
-    const struct KYBER_private_key *private_key);
+// KYBER512_generate_key is a deterministic function that outputs a public and
+// private key based on the given entropy.
+OPENSSL_EXPORT void KYBER512_generate_key(
+    struct KYBER512_public_key *out_pub, struct KYBER512_private_key *out_priv,
+    const uint8_t input[KYBER_GENERATE_KEY_BYTES]);
 
-// KYBER_CIPHERTEXT_BYTES is number of bytes in the Kyber768 ciphertext.
-#define KYBER_CIPHERTEXT_BYTES 1088
+// KYBER768_generate_key is a deterministic function that outputs a public and
+// private key based on the given entropy.
+OPENSSL_EXPORT void KYBER768_generate_key(
+    struct KYBER768_public_key *out_pub, struct KYBER768_private_key *out_priv,
+    const uint8_t input[KYBER_GENERATE_KEY_BYTES]);
 
-// KYBER_encap encrypts a random secret key of length |out_shared_secret_len| to
-// |public_key|, writes the ciphertext to |ciphertext|, and writes the random
-// key to |out_shared_secret|. The party calling |KYBER_decap| must already know
-// the correct value of |out_shared_secret_len|.
-OPENSSL_EXPORT void KYBER_encap(uint8_t out_ciphertext[KYBER_CIPHERTEXT_BYTES],
-                                uint8_t *out_shared_secret,
-                                size_t out_shared_secret_len,
-                                const struct KYBER_public_key *public_key);
+// KYBER512_encap is a deterministic function the generates and encrypts a random
+// session key from the given entropy, writing those values to |out_shared_key|
+// and |out_ciphertext|, respectively.
+OPENSSL_EXPORT void KYBER512_encap(uint8_t out_ciphertext[KYBER512_CIPHERTEXT_BYTES],
+                              uint8_t out_shared_key[KYBER_KEY_BYTES],
+                              const struct KYBER512_public_key *in_pub,
+                              const uint8_t in[KYBER_ENCAP_BYTES]);
 
-// KYBER_decap decrypts a key of length |out_shared_secret_len| from
-// |ciphertext| using |private_key| and writes it to |out_shared_secret|. If
-// |ciphertext| is invalid, |out_shared_secret| is filled with a key that
-// will always be the same for the same |ciphertext| and |private_key|, but
-// which appears to be random unless one has access to |private_key|. These
-// alternatives occur in constant time. Any subsequent symmetric encryption
-// using |out_shared_secret| must use an authenticated encryption scheme in
-// order to discover the decapsulation failure.
-OPENSSL_EXPORT void KYBER_decap(
-    uint8_t *out_shared_secret, size_t out_shared_secret_len,
-    const uint8_t ciphertext[KYBER_CIPHERTEXT_BYTES],
-    const struct KYBER_private_key *private_key);
+// KYBER768_encap is a deterministic function the generates and encrypts a random
+// session key from the given entropy, writing those values to |out_shared_key|
+// and |out_ciphertext|, respectively.
+OPENSSL_EXPORT void KYBER768_encap(uint8_t out_ciphertext[KYBER768_CIPHERTEXT_BYTES],
+                              uint8_t out_shared_key[KYBER_KEY_BYTES],
+                              const struct KYBER768_public_key *in_pub,
+                              const uint8_t in[KYBER_ENCAP_BYTES]);
 
+// KYBER_decap decrypts a session key from |ciphertext_len| bytes of
+// |ciphertext|. If the ciphertext is valid, the decrypted key is written to
+// |out_shared_key|. Otherwise a key dervied from |ciphertext| and a secret key (kept
+// in |in_priv|) is written. If the ciphertext is the wrong length then it will
+// leak which was done via side-channels. Otherwise it should perform either
+// action in constant-time.
+OPENSSL_EXPORT void KYBER512_decap(uint8_t out_shared_key[KYBER_KEY_BYTES],
+                              const struct KYBER512_private_key *in_priv,
+                              const uint8_t *ciphertext, size_t ciphertext_len);
 
-// Serialisation of keys.
+// KYBER_decap decrypts a session key from |ciphertext_len| bytes of
+// |ciphertext|. If the ciphertext is valid, the decrypted key is written to
+// |out_shared_key|. Otherwise a key dervied from |ciphertext| and a secret key (kept
+// in |in_priv|) is written. If the ciphertext is the wrong length then it will
+// leak which was done via side-channels. Otherwise it should perform either
+// action in constant-time.
+OPENSSL_EXPORT void KYBER768_decap(uint8_t out_shared_key[KYBER_KEY_BYTES],
+                              const struct KYBER768_private_key *in_priv,
+                              const uint8_t *ciphertext, size_t ciphertext_len);
 
-// KYBER_marshal_public_key serializes |public_key| to |out| in the standard
-// format for Kyber public keys. It returns one on success or zero on allocation
-// error.
-OPENSSL_EXPORT int KYBER_marshal_public_key(
-    CBB *out, const struct KYBER_public_key *public_key);
+// KYBER512_marshal_public_key serialises |in_pub| to |out|.
+OPENSSL_EXPORT void KYBER512_marshal_public_key(
+    uint8_t out[KYBER512_PUBLIC_KEY_BYTES], const struct KYBER512_public_key *in_pub);
 
-// KYBER_parse_public_key parses a public key, in the format generated by
-// |KYBER_marshal_public_key|, from |in| and writes the result to
-// |out_public_key|. It returns one on success or zero on parse error or if
-// there are trailing bytes in |in|.
-OPENSSL_EXPORT int KYBER_parse_public_key(
-    struct KYBER_public_key *out_public_key, CBS *in);
+// KYBER768_marshal_public_key serialises |in_pub| to |out|.
+OPENSSL_EXPORT void KYBER768_marshal_public_key(
+    uint8_t out[KYBER768_PUBLIC_KEY_BYTES], const struct KYBER768_public_key *in_pub);
 
-// KYBER_marshal_private_key serializes |private_key| to |out| in the standard
-// format for Kyber private keys. It returns one on success or zero on
-// allocation error.
-OPENSSL_EXPORT int KYBER_marshal_private_key(
-    CBB *out, const struct KYBER_private_key *private_key);
+// KYBER512_parse_public_key sets |*out| to the public-key encoded in |in|.
+OPENSSL_EXPORT void KYBER512_parse_public_key(
+    struct KYBER512_public_key *out, const uint8_t in[KYBER512_PUBLIC_KEY_BYTES]);
 
-// KYBER_PRIVATE_KEY_BYTES is the length of the data produced by
-// |KYBER_marshal_private_key|.
-#define KYBER_PRIVATE_KEY_BYTES 2400
-
-// KYBER_parse_private_key parses a private key, in the format generated by
-// |KYBER_marshal_private_key|, from |in| and writes the result to
-// |out_private_key|. It returns one on success or zero on parse error or if
-// there are trailing bytes in |in|.
-OPENSSL_EXPORT int KYBER_parse_private_key(
-    struct KYBER_private_key *out_private_key, CBS *in);
-
+// KYBER768_parse_public_key sets |*out| to the public-key encoded in |in|.
+OPENSSL_EXPORT void KYBER768_parse_public_key(
+    struct KYBER768_public_key *out, const uint8_t in[KYBER768_PUBLIC_KEY_BYTES]);
 
 #if defined(__cplusplus)
 }  // extern C

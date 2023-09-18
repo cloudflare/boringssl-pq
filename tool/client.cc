@@ -128,6 +128,11 @@ static const struct argument kArguments[] = {
         "Permute extensions in handshake messages",
     },
     {
+        "-disable-second-keyshare",
+        kBooleanArgument,
+        "Do not send a second keyshare",
+    },
+    {
         "-test-resumption", kBooleanArgument,
         "Connect to the server twice. The first connection is closed once a "
         "session is established. The second connection offers it.",
@@ -538,6 +543,10 @@ bool Client(const std::vector<std::string> &args) {
 
   if (args_map.count("-permute-extensions") != 0) {
     SSL_CTX_set_permute_extensions(ctx.get(), 1);
+  }
+
+  if (args_map.count("-disable-second-keyshare") != 0) {
+    SSL_CTX_use_second_keyshare(ctx.get(), 0);
   }
 
   if (args_map.count("-root-certs") != 0) {
